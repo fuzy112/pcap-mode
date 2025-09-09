@@ -6,7 +6,7 @@
 ;; Version: 0.2
 ;; Keywords: pcap, packets, tcpdump, wireshark, tshark
 ;; Repository:
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.3") (xterm-color "2.0"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -90,6 +90,11 @@
 Lines of file must be in the following form:
 \"<NAME>\" <FILTER EXPRESSION>"
   :type 'file
+  :group 'pcap-mode)
+
+(defcustom pcap-mode-use-colors t
+  "Enable coloring of packets."
+  :type 'boolean
   :group 'pcap-mode)
 
 (defvar pcap-mode--tshark-filter-history nil
@@ -271,15 +276,16 @@ interface from which a capture should be started."
   (require 'tramp)
   (let ((real-filename (if (tramp-tramp-file-p filename)
                            (elt (tramp-dissect-file-name filename) 3)
-                           filename)))
-    (let ((input-flag (if capture-interface
-                          (format "-i %s -w %s" (shell-quote-argument capture-interface)
+                         filename)))
+    (let ((color-flag (if pcap-mode-use-colors "--color" ""))
+          (input-flag (if capture-interface
+                          (format " -i %s -w %s" (shell-quote-argument capture-interface)
                                   (shell-quote-argument real-filename))
-                        (format "-r %s" (shell-quote-argument real-filename))))
+                        (format " -r %s" (shell-quote-argument real-filename))))
           (tshark-name (if (tramp-tramp-file-p filename)
                            (format "sudo %s" pcap-mode-tshark-executable)
                          pcap-mode-tshark-executable)))
-      (format "%s %s %s" tshark-name input-flag filters))))
+      (format "%s %s %s %s" tshark-name color-flag input-flag filters))))
 
 (defun pcap-mode--packet-number-from-tshark-list ()
   "Return the line number of a packet."
@@ -303,8 +309,22 @@ Invokes tshark  adding the `frame.number==` display filter."
                                       (buffer-file-name))))
         (get-buffer-create temp-buffer-name)
         (add-to-list 'pcap-mode--pcap-packet-cleanup-list temp-buffer-name)
-        (let ((message-log-max nil))
-          (shell-command cmd temp-buffer-name))
+        (let* ((process-connection-type 'pty)
+               (proc (start-file-process-shell-command "tshark"
+                                                       temp-buffer-name
+                                                       cmd)))
+          (set-process-sentinel proc #'ignore)
+          (unwind-protect
+              (while (process-live-p proc)
+                (accept-process-output proc))
+            (delete-process proc)))
+        (with-current-buffer temp-buffer-name
+          (goto-char (point-min))
+          (when pcap-mode-use-colors
+            (let ((inhibit-read-only t)
+                  buffer-read-only)
+              (xterm-color-colorize-buffer))))
+        (shell-command cmd temp-buffer-name)
         (switch-to-buffer-other-window temp-buffer-name)
         (special-mode)))))
 
@@ -315,8 +335,21 @@ Output is stored to BUFFER.  If the `pcap-mode-tshark-executable`
 is not found, set the buffer to an error message.  A non-nil INTERFACE
 means to capture to the FILENAME instead."
   (if pcap-mode-tshark-executable
-      (shell-command (pcap-mode--get-tshark-command filename filters interface)
-                     buffer)
+      (let* ((cmd (pcap-mode--get-tshark-command filename filters interface))
+             (process-connection-type 'pty)
+             (proc (start-file-process-shell-command "tshark" buffer cmd)))
+        (set-process-sentinel proc #'ignore)
+        (unwind-protect
+            (while (process-live-p proc)
+              (accept-process-output proc))
+          (delete-process proc))
+        (with-current-buffer buffer
+          (goto-char (point-min))
+          (when pcap-mode-use-colors
+            (let ((inhibit-read-only t)
+                  buffer-read-only)
+              (xterm-color-colorize-buffer))))
+        buffer)
     (let ((oldbuf (current-buffer)))
       (switch-to-buffer buffer)
       (setf (buffer-string) "**ERROR: tshark executable not found")
