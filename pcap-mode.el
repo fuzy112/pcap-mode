@@ -55,6 +55,10 @@
 ;; * 2016-10-11 (vapniks) Add `pcap-mode-set-named-filter' and `pcap-mode-clear-filter'.
 ;;                        Also new option `pcap-mode-dfilters-file' and macro `pcap-mode-with-dfilters-file'.
 ;; * 2016-10-25 (aconole) Conversation tracking for more than just tcp.
+;; * 2025-09-09 (Zhengyi) Add color support for packet display
+;;                        New customization variable pcap-mode-use-colors
+;;                        Uses tshark --color flag with xterm-color processing
+;;                        Added xterm-color dependency (version 2.0)
 ;;; Code:
 
 (defgroup pcap-mode nil "Major mode for viewing pcap files"
