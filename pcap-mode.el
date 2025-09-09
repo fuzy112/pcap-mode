@@ -1,8 +1,8 @@
-;;; pcap-mode.el --- Major mode for working with PCAP files
+;;; pcap-mode.el --- Major mode for working with PCAP files -*- lexical-binding: t; -*-
 
 ;; Author: Aaron Conole <aconole@bytheb.org>
 ;; Created: 2016-08-16
-;; Edited: 2016-08-29
+;; Edited: 2025-09-09
 ;; Version: 0.2
 ;; Keywords: pcap, packets, tcpdump, wireshark, tshark
 ;; Repository:
